@@ -1,209 +1,77 @@
-import uuid
+# app/core/scene_compiler.py
 import random
-import math
 from typing import Dict, List
+from app.core.asset_registry import get_asset_by_category
 
+# Calibration based on SavedGen.json
+GRID_SNAP = 600.0  
 
-def _uid(prefix: str) -> str:
-    return f"{prefix}-{uuid.uuid4().hex[:8]}"
-
-
-# -------------------------------------------------
-# ACTOR FACTORY
-# -------------------------------------------------
-def _actor(asset: Dict, category: str, x: int, y: int, z: int,
-           yaw: int = 0, scale: float = 1.0) -> Dict:
+def _generate_actor(asset_meta: Dict, x, y, z, yaw=0.0):
     return {
-        "actor_id": _uid("actor"),
-        "asset_id": asset["id"],
-        "name": category,
-        "category": category,
-        "blueprint": asset["blueprint"],
-        "transform": {
-            "location": {"x": x, "y": y, "z": z},
-            "rotation": {"pitch": 0, "yaw": yaw, "roll": 0},
-            "scale": {"x": scale, "y": scale, "z": scale},
+        "AssetClass": asset_meta["class"],
+        "AssetClassPath": asset_meta["path"],
+        "Transform": {
+            "Location": {"X": float(x), "Y": float(y), "Z": float(z)},
+            "Rotation": {"Pitch": 0.0, "Yaw": float(yaw), "Roll": 0.0},
+            "Scale": {"X": 1.0, "Y": 1.0, "Z": 1.0}
         },
-        "physics": {
-            "enabled": False,
-            "collidable": True,
-            "gravity": False,
-        },
-        "visibility": {
-            "visible": True,
-            "hidden_in_game": False,
-        },
+        "OcaData": {"CollisionProfile": "BlockAllDynamic", "Physics": False, "Shadow": True}
     }
 
+def compile_scene(intent: Dict) -> Dict:
+    placeables = []
+    
+    # Extract counts
+    counts = {obj["type"]: obj["count"] for obj in intent["objects"]}
+    theme = intent["theme"]
 
-# -------------------------------------------------
-# MAIN COMPILER
-# -------------------------------------------------
-def compile_scene(intent: Dict, assets: List[Dict]) -> Dict:
+    # 1. ZONE: BUILDINGS & ROADS (The Core City)
+    building_count = counts.get("building", 0)
+    for i in range(building_count):
+        bx = i * 1500.0 # Wide spacing for "Surroundings"
+        by = 0.0
+        
+        # Floor
+        floor = get_asset_by_category("floor", i)
+        placeables.append(_generate_actor(floor, bx, by, 0))
+        
+        # Snapped Walls (4-sided box)
+        wall_configs = [(300,0,90), (-300,0,270), (0,300,0), (0,-300,180)]
+        for ox, oy, yaw in wall_configs:
+            wall = get_asset_by_category("wall", random.randint(0, 10))
+            placeables.append(_generate_actor(wall, bx + ox, by + oy, 0, yaw))
 
-    scene_id = _uid("scene")
+    # 2. ENTITY: VEHICLES (Mapping "Car" to appropriate Decor if car mesh missing)
+    # Based on SavedGen.json, we'll use specific 'Decor' indices that look like props/vehicles
+    vehicle_count = counts.get("vehicle", 0)
+    for v in range(vehicle_count):
+        # Place car on a "road" area
+        placeables.append(_generate_actor(get_asset_by_category("decor", 10), 0, v * -400, 20))
 
-    scene = {
-        "scene_id": scene_id,
-        "scene_type": intent.get("scene_type", "generic"),
-        "lighting": {
-            "brightness": random.randint(8, 14),
-            "temperature": random.uniform(35, 60),
-            "time_of_day": random.uniform(5, 18),
-            "sun_angle": random.randint(0, 360),
-        },
-        "fog": {
-            "density": 0.02,
-            "ray_density": 0.02,
-            "height": 0.2,
-        },
-        "actors": [],
-        "rules": {
-            "allow_physics": False,
-            "allow_ai_agents": False,
-            "allow_multiplayer": False,
-        },
+    # 3. ZONE: GREEN SURROUNDINGS (Foliage Scatter)
+    tree_count = counts.get("tree", 20)
+    for t in range(tree_count):
+        # Logic: Don't place trees inside buildings. 
+        # Scatter them in a ring around the building zone.
+        angle = random.uniform(0, 6.28)
+        radius = random.uniform(2000, 6000)
+        tx = radius * 1.5 * (1 if random.random() > 0.5 else -1)
+        ty = radius * 1.5 * (1 if random.random() > 0.5 else -1)
+        
+        tree_idx = random.randint(0, 32)
+        # Force nature-looking assets if theme is nature
+        if theme == "nature":
+             tree_idx = random.choice([1, 2, 5, 8, 12, 15]) # Assumes these are trees in your 33 assets
+             
+        tree = get_asset_by_category("decor", tree_idx)
+        placeables.append(_generate_actor(tree, tx, ty, 0, random.uniform(0, 360)))
+
+    return {
+        "PlaceableAssets": placeables,
+        "DefaultProperties": {
+            "Brightness": 12.0 if theme == "nature" else 8.0,
+            "Temperature": 55.0,
+            "TimeOfDay": 10.0 if theme == "nature" else 19.0, # Day vs Night
+            "SunAngle": 0.0, "Density": 0.04, "Height": 0.2
+        }
     }
-
-    # -----------------------------
-    # ASSET LOOKUP
-    # -----------------------------
-    asset_lookup = {}
-    for asset in assets:
-        asset_lookup.setdefault(asset["category"], []).append(asset)
-
-    def pick(cat):
-        pool = asset_lookup.get(cat, [])
-        return random.choice(pool) if pool else None
-
-    # -----------------------------
-    # BUILDINGS
-    # -----------------------------
-    building_count = 0
-    for obj in intent.get("objects", []):
-        if obj["type"] == "building":
-            building_count += obj.get("count", 1)
-
-    if building_count > 0:
-        rows = math.ceil(math.sqrt(building_count))
-        spacing = 8000
-        idx = 0
-
-        for r in range(rows):
-            for c in range(rows):
-                if idx >= building_count:
-                    break
-
-                base_x = r * spacing
-                base_y = c * spacing
-                floors_count = random.randint(1, 3)
-                yaw = random.choice([0, 90, 180, 270])
-
-                for f in range(floors_count):
-                    z = f * 400
-
-                    floor_asset = pick("floor")
-                    if floor_asset:
-                        scene["actors"].append(
-                            _actor(floor_asset, "floor", base_x, base_y, z, yaw)
-                        )
-
-                    # walls
-                    for dx, dy in [(600, 0), (-600, 0), (0, 600), (0, -600)]:
-                        wall_asset = pick("wall")
-                        if wall_asset:
-                            scene["actors"].append(
-                                _actor(
-                                    wall_asset,
-                                    "wall",
-                                    base_x + dx,
-                                    base_y + dy,
-                                    z,
-                                    yaw,
-                                )
-                            )
-
-                ceiling_asset = pick("ceiling")
-                if ceiling_asset:
-                    scene["actors"].append(
-                        _actor(
-                            ceiling_asset,
-                            "ceiling",
-                            base_x,
-                            base_y,
-                            floors_count * 400,
-                            yaw,
-                        )
-                    )
-
-                door_asset = pick("door")
-                if door_asset:
-                    side = random.choice([(650, 0), (-650, 0), (0, 650), (0, -650)])
-                    scene["actors"].append(
-                        _actor(
-                            door_asset,
-                            "door",
-                            base_x + side[0],
-                            base_y + side[1],
-                            0,
-                            yaw,
-                        )
-                    )
-
-                idx += 1
-
-    # -----------------------------
-    # ROADS / TRACKS
-    # -----------------------------
-    for obj in intent.get("objects", []):
-        if obj["type"] in ["road", "track"]:
-            track_asset = pick("track")
-            if track_asset:
-                for i in range(3):
-                    scene["actors"].append(
-                        _actor(track_asset, "track", i * 6000, -8000, 0)
-                    )
-
-    # -----------------------------
-    # TREES / FOLIAGE
-    # -----------------------------
-    tree_assets = asset_lookup.get("tree") or asset_lookup.get("decor", [])
-    if tree_assets:
-        for _ in range(80):
-            asset = random.choice(tree_assets)
-            scene["actors"].append(
-                _actor(
-                    asset,
-                    "tree",
-                    random.randint(-20000, 20000),
-                    random.randint(-20000, 20000),
-                    0,
-                    random.randint(0, 360),
-                    random.uniform(0.8, 1.3),
-                )
-            )
-
-    # -----------------------------
-    # DECOR
-    # -----------------------------
-    decor_assets = asset_lookup.get("decor", [])
-    for _ in range(40):
-        if decor_assets:
-            asset = random.choice(decor_assets)
-            scene["actors"].append(
-                _actor(
-                    asset,
-                    "decor",
-                    random.randint(-15000, 15000),
-                    random.randint(-15000, 15000),
-                    0,
-                    random.randint(0, 360),
-                )
-            )
-
-    # -----------------------------
-    # EXPORT
-    # -----------------------------
-    from app.core.engine_exporter import export_to_engine
-
-    return export_to_engine(scene)

@@ -1,0 +1,133 @@
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# =========================
+# VIRTUAL ENVIRONMENTS
+# =========================
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# =========================
+# ENV & SECRETS
+# =========================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.secret
+*.crt
+*.pfx
+
+# =========================
+# BUILD / PACKAGING
+# =========================
+build/
+dist/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# =========================
+# LOGS / RUNTIME
+# =========================
+*.log
+logs/
+uvicorn.log
+gunicorn.log
+*.pid
+
+# =========================
+# TEST / COVERAGE
+# =========================
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# =========================
+# CACHE / TEMP
+# =========================
+.cache/
+.mypy_cache/
+.ruff_cache/
+.tmp/
+tmp/
+temp/
+
+# =========================
+# OS FILES
+# =========================
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# =========================
+# EDITORS / IDE
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# DOCKER
+# =========================
+docker-compose.override.yml
+
+# =========================
+# AWS / DEPLOYMENT
+# =========================
+.elasticbeanstalk/
+.aws/
+
+# =========================
+# GAME / AI GENERATED OUTPUTS
+# =========================
+generated/
+outputs/
+scenes/
+exports/
+engine_exports/
+worlds/
+renders/
+
+# Scene JSON auto-generated
+scene_*.json
+scene_*.txt
+scene_*.log
+
+# Unreal / Engine Temp
+Saved/
+Intermediate/
+DerivedDataCache/
+Binaries/
+
+# =========================
+# DATA ARTIFACTS (AUTO BUILT)
+# =========================
+app/data/assets.json
+app/data/asset_index.json
+app/data/cache/
+app/data/tmp/
+
+# Keep only source asset library
+!app/assets/library.csv
+
+# =========================
+# DEBUG / LOCAL EXPORTS
+# =========================
+swagger_exports/
+curl_outputs/
+debug/
+

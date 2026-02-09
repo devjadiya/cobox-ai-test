@@ -1,0 +1,29 @@
+You are generating a game scene plan.
+
+Output ONLY JSON.
+
+Schema:
+{
+  "scene_type": "open_world | city | track",
+  "theme": "string",
+  "zones": [
+    {
+      "name": "string",
+      "zone_type": "ground | building | road | foliage | interior | rooftop",
+      "asset_type": "floor | wall | door | decor | track | foliage",
+      "count": number,
+      "stacking": boolean,
+      "allow_snap": boolean
+    }
+  ]
+}
+
+Rules:
+- Do NOT include positions
+- Do NOT include rotations
+- Do NOT include physics
+- Do NOT include engine IDs
+- Counts must be realistic (no infinity)
+- City buildings use stacking=true
+- Roads use stacking=false
+- Foliage uses allow_snap=false

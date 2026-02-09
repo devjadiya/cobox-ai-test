@@ -21,21 +21,31 @@ app = FastAPI(
 )
 
 # --------------------------------------------------
-# Startup
+# Lazy Loading Logic
 # --------------------------------------------------
-@app.on_event("startup")
-def startup():
-    app.state.asset_index = load_asset_index()
-    logger.info("[startup] Assets loaded")
+# We initialize this to None so the server starts instantly.
+app.state.asset_index = None
+
+def get_assets():
+    """Helper to load assets only when needed."""
+    if app.state.asset_index is None:
+        logger.info("[lazy-load] Loading assets from CSV...")
+        app.state.asset_index = load_asset_index()
+        logger.info("[lazy-load] Assets loaded successfully")
+    return app.state.asset_index
+
+# --------------------------------------------------
+# Health Check (Triggers Load)
+# --------------------------------------------------
+@app.get("/health")
+def health():
+    # Calling get_assets() here ensures the index is ready for other routes
+    get_assets() 
+    return {"status": "ok"}
 
 # --------------------------------------------------
 # Routers
 # --------------------------------------------------
+# Note: Ensure your routes.py also calls get_assets() if it 
+# accesses request.app.state.asset_index directly.
 app.include_router(router)
-
-# --------------------------------------------------
-# Health
-# --------------------------------------------------
-@app.get("/health")
-def health():
-    return {"status": "ok"}

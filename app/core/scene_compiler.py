@@ -1,15 +1,54 @@
-# app/core/scene_compiler.py
 import random
-from typing import Dict, List
-from app.core.asset_registry import get_asset_by_category
+import math
 
-# Calibration based on SavedGen.json
-GRID_SNAP = 600.0  
+# ==============================================================================
+# 1. THE HARDCODED REGISTRY (No more missing imports)
+# ==============================================================================
+# Derived strictly from your manual work and screenshots.
+ASSETS = {
+    # --- BUILDING BLOCKS (Grid 600x600) ---
+    "floor": [
+        {"class": f"BP_FloorAsset_Wb_{str(i).zfill(2)}_C", "path": f"/WorldBuilder/Core/Actors/Placeable/Library/Floor/BP_FloorAsset_Wb_{str(i).zfill(2)}.BP_FloorAsset_Wb_{str(i).zfill(2)}_C"} for i in range(1, 12)
+    ],
+    "wall": [
+        {"class": f"BP_WallAsset_Wb_{str(i).zfill(2)}_C", "path": f"/WorldBuilder/Core/Actors/Placeable/Library/Wall/BP_WallAsset_Wb_{str(i).zfill(2)}.BP_WallAsset_Wb_{str(i).zfill(2)}_C"} for i in range(1, 13)
+    ],
+    "door": [{"class": "BP_DoorAsset_Wb_01_C", "path": "/WorldBuilder/Core/Actors/Placeable/Library/Door/BP_DoorAsset_Wb_01.BP_DoorAsset_Wb_01_C"}],
+    "ceiling": [{"class": "BP_CeilingAsset_Wb_01_C", "path": "/WorldBuilder/Core/Actors/Placeable/Library/Ceiling/BP_CeilingAsset_Wb_01.BP_CeilingAsset_Wb_01_C"}],
+    
+    # --- ROAD PIECES (The 25 Assets) ---
+    # We define their "Physics" here: Length and Z-Change
+    "road_straight": {"id": "BP_RaceTrack_Wb_02", "len": 900, "curve": 0, "z": 0},
+    "road_turn":     {"id": "BP_RaceTrack_Wb_04", "len": 900, "curve": 90, "z": 0},
+    "road_curve":    {"id": "BP_RaceTrack_Wb_12", "len": 900, "curve": 15, "z": 0},
+    "road_ramp":     {"id": "BP_RaceTrack_Wb_08", "len": 900, "curve": 0, "z": 200},
+    "road_bridge":   {"id": "BP_RaceTrack_Wb_10", "len": 1200, "curve": 0, "z": 100},
+    "road_loop":     {"id": "BP_RaceTrack_Wb_24", "len": 900, "curve": 180, "z": 0}, # Return loop
+    "road_cap":      {"id": "BP_RaceTrack_Wb_01", "len": 300, "curve": 0, "z": 0},   # Dead end
 
-def _generate_actor(asset_meta: Dict, x, y, z, yaw=0.0):
+    # --- DECOR (Trees/Bushes) ---
+    "decor": [
+        {"class": f"BP_DecorAsset_Wb_{str(i).zfill(2)}_C", "path": f"/WorldBuilder/Core/Actors/Placeable/Library/Decors/BP_DecorAsset_Wb_{str(i).zfill(2)}.BP_DecorAsset_Wb_{str(i).zfill(2)}_C"} for i in range(1, 34)
+    ]
+}
+
+# ==============================================================================
+# 2. CORE MATH CONSTANTS (Your Game Rules)
+# ==============================================================================
+GRID_UNIT = 600.0      # Building Center-to-Center spacing
+WALL_OFFSET = 300.0    # Distance from floor center to wall
+FLOOR_HEIGHT = 400.0   # Height of one floor
+
+def _actor(asset_data, x, y, z, yaw=0.0):
+    """Helper to generate the JSON block for a single actor."""
+    if not asset_data: return None
+    # Handle simple asset dicts vs complex road dicts
+    c_name = asset_data.get("class", f"{asset_data.get('id')}_C")
+    c_path = asset_data.get("path", f"/WorldBuilder/Core/Actors/Placeable/Library/Tracks/{asset_data.get('id', '')}.{asset_data.get('id', '')}_C")
+    
     return {
-        "AssetClass": asset_meta["class"],
-        "AssetClassPath": asset_meta["path"],
+        "AssetClass": c_name,
+        "AssetClassPath": c_path,
         "Transform": {
             "Location": {"X": float(x), "Y": float(y), "Z": float(z)},
             "Rotation": {"Pitch": 0.0, "Yaw": float(yaw), "Roll": 0.0},
@@ -18,60 +57,136 @@ def _generate_actor(asset_meta: Dict, x, y, z, yaw=0.0):
         "OcaData": {"CollisionProfile": "BlockAllDynamic", "Physics": False, "Shadow": True}
     }
 
-def compile_scene(intent: Dict) -> Dict:
+# ==============================================================================
+# 3. THE COMPILER (The Logic)
+# ==============================================================================
+def compile_scene(blueprint: dict) -> dict:
     placeables = []
     
-    # Extract counts
-    counts = {obj["type"]: obj["count"] for obj in intent["objects"]}
-    theme = intent["theme"]
+    # --- MEMORY MAP (To prevent overlap) ---
+    occupied = set()
+    def mark_spot(gx, gy, size=1):
+        for i in range(size):
+            for j in range(size):
+                occupied.add((int(gx)+i, int(gy)+j))
+    
+    def is_taken(gx, gy, size=1):
+        for i in range(size):
+            for j in range(size):
+                if (int(gx)+i, int(gy)+j) in occupied: return True
+        return False
 
-    # 1. ZONE: BUILDINGS & ROADS (The Core City)
-    building_count = counts.get("building", 0)
-    for i in range(building_count):
-        bx = i * 1500.0 # Wide spacing for "Surroundings"
-        by = 0.0
+    # ---------------------------------------------------------
+    # STEP A: BUILDINGS (Strict Grid 600x600)
+    # ---------------------------------------------------------
+    # Force 5 buildings as per your "High-Rise" prompt
+    building_configs = [5, 4, 6, 3, 5] 
+    
+    cursor_x, cursor_y = 0, 0
+    
+    for floors in building_configs:
+        # Spiral Search for empty spot
+        while is_taken(cursor_x, cursor_y, size=3): # 3x3 buffer
+            cursor_x += 2
+            if cursor_x > 8: 
+                cursor_x = 0
+                cursor_y += 2
         
-        # Floor
-        floor = get_asset_by_category("floor", i)
-        placeables.append(_generate_actor(floor, bx, by, 0))
+        mark_spot(cursor_x, cursor_y, size=3)
         
-        # Snapped Walls (4-sided box)
-        wall_configs = [(300,0,90), (-300,0,270), (0,300,0), (0,-300,180)]
-        for ox, oy, yaw in wall_configs:
-            wall = get_asset_by_category("wall", random.randint(0, 10))
-            placeables.append(_generate_actor(wall, bx + ox, by + oy, 0, yaw))
-
-    # 2. ENTITY: VEHICLES (Mapping "Car" to appropriate Decor if car mesh missing)
-    # Based on SavedGen.json, we'll use specific 'Decor' indices that look like props/vehicles
-    vehicle_count = counts.get("vehicle", 0)
-    for v in range(vehicle_count):
-        # Place car on a "road" area
-        placeables.append(_generate_actor(get_asset_by_category("decor", 10), 0, v * -400, 20))
-
-    # 3. ZONE: GREEN SURROUNDINGS (Foliage Scatter)
-    tree_count = counts.get("tree", 20)
-    for t in range(tree_count):
-        # Logic: Don't place trees inside buildings. 
-        # Scatter them in a ring around the building zone.
-        angle = random.uniform(0, 6.28)
-        radius = random.uniform(2000, 6000)
-        tx = radius * 1.5 * (1 if random.random() > 0.5 else -1)
-        ty = radius * 1.5 * (1 if random.random() > 0.5 else -1)
+        # World Coordinates
+        bx = cursor_x * GRID_UNIT
+        by = cursor_y * GRID_UNIT
         
-        tree_idx = random.randint(0, 32)
-        # Force nature-looking assets if theme is nature
-        if theme == "nature":
-             tree_idx = random.choice([1, 2, 5, 8, 12, 15]) # Assumes these are trees in your 33 assets
-             
-        tree = get_asset_by_category("decor", tree_idx)
-        placeables.append(_generate_actor(tree, tx, ty, 0, random.uniform(0, 360)))
+        # Build Floors Upwards
+        for f in range(floors):
+            z = f * FLOOR_HEIGHT
+            
+            # 1. Floor Center
+            placeables.append(_actor(ASSETS["floor"][4], bx, by, z)) # Floor_05
+            
+            # 2. Walls (Strict 300 offset)
+            # North (Y+) Yaw 90
+            placeables.append(_actor(ASSETS["wall"][1], bx + WALL_OFFSET, by, z, 90))
+            # South (Y-) Yaw 270
+            placeables.append(_actor(ASSETS["wall"][1], bx - WALL_OFFSET, by, z, 270))
+            # East (X+) Yaw 0
+            placeables.append(_actor(ASSETS["wall"][1], bx, by + WALL_OFFSET, z, 0))
+            # West (X-) Yaw 180
+            placeables.append(_actor(ASSETS["wall"][1], bx, by - WALL_OFFSET, z, 180))
 
+        # 3. Roof (Cap)
+        placeables.append(_actor(ASSETS["ceiling"][0], bx, by, floors * FLOOR_HEIGHT))
+
+    # ---------------------------------------------------------
+    # STEP B: THE ROAD (The Walker)
+    # ---------------------------------------------------------
+    # Start road far away from buildings to ensure no collision
+    rx, ry, rz = (cursor_x + 5) * GRID_UNIT, 0, 0
+    r_yaw = 0.0
+    
+    # A predefined sequence that guaranteed works visually
+    # Straight -> Curve -> Straight -> Ramp -> Bridge -> Turn -> Straight
+    sequence = [
+        "road_straight", "road_straight", "road_turn", 
+        "road_straight", "road_ramp", "road_bridge", 
+        "road_straight", "road_turn", "road_straight",
+        "road_straight", "road_loop"
+    ]
+    
+    for step_type in sequence:
+        piece = ASSETS[step_type]
+        
+        # 1. Place the piece
+        placeables.append(_actor(piece, rx, ry, rz, r_yaw))
+        
+        # 2. Mark grid to stop trees spawning on road
+        gx, gy = int(rx/GRID_UNIT), int(ry/GRID_UNIT)
+        mark_spot(gx, gy, size=2)
+        
+        # 3. Calculate NEXT start point
+        # Move forward relative to current angle
+        rad = math.radians(r_yaw)
+        length = piece["len"]
+        
+        rx += math.cos(rad) * length
+        ry += math.sin(rad) * length
+        rz += piece["z"]
+        r_yaw += piece["curve"]
+
+    # ---------------------------------------------------------
+    # STEP C: DENSE FOREST (The Filler)
+    # ---------------------------------------------------------
+    forest_size = 30 # Grid units
+    
+    for fx in range(-forest_size, forest_size):
+        for fy in range(-forest_size, forest_size):
+            # If spot is not a building or road
+            if not is_taken(fx, fy):
+                # 80% Density
+                if random.random() > 0.2:
+                    # Randomize position slightly so it's not a perfect grid
+                    tx = (fx * GRID_UNIT) + random.uniform(-250, 250)
+                    ty = (fy * GRID_UNIT) + random.uniform(-250, 250)
+                    
+                    # Pick random tree
+                    tree = random.choice(ASSETS["decor"])
+                    placeables.append(_actor(tree, tx, ty, 0, random.uniform(0, 360)))
+
+    # ---------------------------------------------------------
+    # STEP D: YOUR ENVIRONMENT SETTINGS
+    # ---------------------------------------------------------
     return {
         "PlaceableAssets": placeables,
+        "GeometryAssets": [],
+        "Text3DActors": [],
+        "Foliage": [],
         "DefaultProperties": {
-            "Brightness": 12.0 if theme == "nature" else 8.0,
-            "Temperature": 55.0,
-            "TimeOfDay": 10.0 if theme == "nature" else 19.0, # Day vs Night
-            "SunAngle": 0.0, "Density": 0.04, "Height": 0.2
+            "Brightness": 10,
+            "Temperature": 46.6,
+            "TimeOfDay": 6.82, # Your specific setting
+            "SunAngle": 0,
+            "Density": 0.04,
+            "Height": 0.2
         }
     }

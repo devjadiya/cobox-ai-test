@@ -1,7 +1,6 @@
 import re
 
 def sanitize_text(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r"[^\w\s]", "", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    # Industry standard: Basic strip and lowercase, let LLM handle nuance
+    text = text.lower().strip()
+    return re.sub(r"[^\w\s]", "", text)

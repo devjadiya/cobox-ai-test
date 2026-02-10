@@ -6,29 +6,26 @@ from app.settings import settings
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 def generate_spatial_layout(text: str):
-    """Extracts high-level architectural plan, leaves math to Python."""
-    
+    """
+    Asks GPT for a structural blueprint and a road navigation path.
+    """
     SYSTEM_PROMPT = """
-    You are a Lead Level Designer. Analyze the prompt and extract construction parameters.
+    You are a Senior Level Designer. Create a scene blueprint in JSON.
     
-    OUTPUT JSON SCHEMA:
+    1. ROAD PATH: Return a list of moves for a single connected road.
+       Valid moves: "straight", "turn", "ramp", "bridge".
+       Example: ["straight", "straight", "turn", "ramp", "straight", "bridge", "turn"]
+       
+    2. BUILDINGS: List of building footprints (floors: 1-6).
+    
+    3. FOREST: Density level (low/medium/high).
+    
+    OUTPUT SCHEMA:
     {
-      "layout": {
-        "buildings": [{"floors": 2}, {"floors": 5}, {"floors": 1}], 
-        "road_style": "loop", 
-        "forest_density": "high"
-      },
-      "environment": {
-        "Brightness": 10.0,
-        "TimeOfDay": 14.0,
-        "Density": 0.05
-      }
+      "road_path": ["straight", "turn", ...],
+      "buildings": [{"floors": 3}, {"floors": 5}],
+      "forest": "high"
     }
-    
-    RULES:
-    - If user asks for "City", generate 10+ buildings in the list.
-    - If "Cyberpunk", set TimeOfDay to 20.0 (Night).
-    - If "Forest", set forest_density to "high".
     """
     
     try:
@@ -43,11 +40,9 @@ def generate_spatial_layout(text: str):
         )
         return json.loads(response.choices[0].message.content)
     except Exception:
-        # Robust Fallback
+        # Fallback path if AI fails
         return {
-            "layout": {
-                "buildings": [{"floors": 2}, {"floors": 2}, {"floors": 3}], 
-                "road_style": "loop"
-            },
-            "environment": {"Brightness": 10}
+            "road_path": ["straight", "straight", "turn", "straight", "ramp", "turn", "straight"],
+            "buildings": [{"floors": 2}, {"floors": 4}, {"floors": 3}],
+            "forest": "high"
         }

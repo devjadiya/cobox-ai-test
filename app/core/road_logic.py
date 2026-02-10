@@ -1,206 +1,76 @@
 # app/core/road_logic.py
 import random
-from typing import List, Dict
 
-# --- CONNECTION TYPES ---
-TYPE_SOLID = "solid"  # Standard connection (Assets 01-10, 12, 13, 17-25)
-TYPE_PIN = "pin"      # Socket connection (Assets 11, 14)
+# --- CONNECTIVITY RULES ---
+TYPE_SOLID = "Solid" # Standard connection (02, 03, 04, etc.)
+TYPE_PIN = "Pin"     # Socket connection (11, 14)
 
-# --- ASSET DEFINITIONS (The 25 Assets) ---
-ROAD_ASSETS = {
-    # --- BASICS (Solid) ---
-    "straight": {
-        "id": "BP_RaceTrack_Wb_02", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 0,
-        "z_change": 0
-    },
-    "curve_slight": {
-        "id": "BP_RaceTrack_Wb_12", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 15,
-        "z_change": 0
-    },
-    "curve_sharp": {
-        "id": "BP_RaceTrack_Wb_13", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 90,
-        "z_change": 0
-    },
-    "turn_90": {
-        "id": "BP_RaceTrack_Wb_04", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 90,
-        "z_change": 0
-    },
-    "u_turn": {
-        "id": "BP_RaceTrack_Wb_18", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 180,
-        "z_change": 0
-    },
+# --- THE 25 ASSETS (Source of Truth) ---
+ROAD_DB = {
+    # --- SOLID STRAIGHTS ---
+    "BP_RaceTrack_Wb_02": {"type": TYPE_SOLID, "tags": ["straight", "basic"], "len": 900, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_03": {"type": TYPE_SOLID, "tags": ["straight", "bump"], "len": 900, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_05": {"type": TYPE_SOLID, "tags": ["straight", "wide"], "len": 900, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_06": {"type": TYPE_SOLID, "tags": ["straight", "gap"], "len": 900, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_07": {"type": TYPE_SOLID, "tags": ["straight", "s_bend"], "len": 1200, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_17": {"type": TYPE_SOLID, "tags": ["straight", "long_bump"], "len": 1200, "curve": 0, "z": 0},
     
-    # --- COMPLEX / PINS ---
-    "junction_pin": {
-        "id": "BP_RaceTrack_Wb_11", 
-        "type": TYPE_PIN, 
-        "length": 600, 
-        "curve": 0,
-        "z_change": 0
-    },
-    "t_junction_left": {
-        "id": "BP_RaceTrack_Wb_14", 
-        "type": TYPE_PIN, 
-        "length": 900, 
-        "curve": 90,
-        "z_change": 0
-    },
+    # --- SOLID TURNS ---
+    "BP_RaceTrack_Wb_04": {"type": TYPE_SOLID, "tags": ["turn", "90"], "len": 900, "curve": 90, "z": 0},
+    "BP_RaceTrack_Wb_12": {"type": TYPE_SOLID, "tags": ["turn", "slight"], "len": 900, "curve": 15, "z": 0},
+    "BP_RaceTrack_Wb_13": {"type": TYPE_SOLID, "tags": ["turn", "sharp"], "len": 900, "curve": 90, "z": 0},
+    "BP_RaceTrack_Wb_18": {"type": TYPE_SOLID, "tags": ["turn", "u_turn"], "len": 900, "curve": 180, "z": 0},
 
-    # --- ELEVATION (Ramps & Spirals) ---
-    "ramp_gentle": {
-        "id": "BP_RaceTrack_Wb_08", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 0,
-        "z_change": 200 
-    },
-    "ramp_steep": {
-        "id": "BP_RaceTrack_Wb_09", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 0,
-        "z_change": 400
-    },
-    "spiral_up": {
-        "id": "BP_RaceTrack_Wb_15", 
-        "type": TYPE_SOLID, 
-        "length": 1200, 
-        "curve": 45, 
-        "z_change": 300
-    },
-    "spiral_steep": {
-        "id": "BP_RaceTrack_Wb_16", 
-        "type": TYPE_SOLID, 
-        "length": 1200, 
-        "curve": 90, 
-        "z_change": 600
-    },
-    "loop_360": {
-        "id": "BP_RaceTrack_Wb_20", 
-        "type": TYPE_SOLID, 
-        "length": 2000, 
-        "curve": 0, 
-        "z_change": 800 # High elevation change
-    },
+    # --- SOLID ELEVATION (Ramps/Hills) ---
+    "BP_RaceTrack_Wb_08": {"type": TYPE_SOLID, "tags": ["ramp", "gentle"], "len": 900, "curve": 0, "z": 200},
+    "BP_RaceTrack_Wb_09": {"type": TYPE_SOLID, "tags": ["ramp", "steep"], "len": 900, "curve": 0, "z": 400},
+    "BP_RaceTrack_Wb_15": {"type": TYPE_SOLID, "tags": ["ramp", "spiral"], "len": 1200, "curve": 45, "z": 300},
+    "BP_RaceTrack_Wb_16": {"type": TYPE_SOLID, "tags": ["ramp", "spiral_steep"], "len": 1200, "curve": 90, "z": 600},
+    "BP_RaceTrack_Wb_19": {"type": TYPE_SOLID, "tags": ["ramp", "down"], "len": 1200, "curve": 90, "z": -400},
+    "BP_RaceTrack_Wb_20": {"type": TYPE_SOLID, "tags": ["loop"], "len": 2000, "curve": 0, "z": 800}, # 360 Loop
+    "BP_RaceTrack_Wb_21": {"type": TYPE_SOLID, "tags": ["hill", "down"], "len": 1200, "curve": 0, "z": -200},
 
-    # --- SPECIALS ---
-    "bridge_start": {
-        "id": "BP_RaceTrack_Wb_10", 
-        "type": TYPE_SOLID, 
-        "length": 1200, 
-        "curve": 0,
-        "z_change": 100
-    },
-    "bridge_connector": {
-        "id": "BP_RaceTrack_Wb_25", 
-        "type": TYPE_SOLID, 
-        "length": 1200, 
-        "curve": 0,
-        "z_change": 0
-    },
-    "mercedes_junction": {
-        "id": "BP_RaceTrack_Wb_23", 
-        "type": TYPE_SOLID, 
-        "length": 1200, 
-        "curve": 0,
-        "z_change": 0
-    },
-    "bump_long": {
-        "id": "BP_RaceTrack_Wb_17", 
-        "type": TYPE_SOLID, 
-        "length": 1200, 
-        "curve": 0,
-        "z_change": 0
-    },
+    # --- BRIDGE & SPECIALS ---
+    "BP_RaceTrack_Wb_10": {"type": TYPE_SOLID, "tags": ["bridge", "start"], "len": 1200, "curve": 0, "z": 100},
+    "BP_RaceTrack_Wb_25": {"type": TYPE_SOLID, "tags": ["bridge", "segment"], "len": 1200, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_22": {"type": TYPE_SOLID, "tags": ["split"], "len": 1200, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_23": {"type": TYPE_SOLID, "tags": ["junction", "mercedes"], "len": 1200, "curve": 0, "z": 0},
 
-    # --- CAPS ---
-    "dead_end": {
-        "id": "BP_RaceTrack_Wb_01", 
-        "type": TYPE_SOLID, 
-        "length": 300, 
-        "curve": 0,
-        "z_change": 0
-    },
-    "return_loop": {
-        "id": "BP_RaceTrack_Wb_24", 
-        "type": TYPE_SOLID, 
-        "length": 900, 
-        "curve": 180,
-        "z_change": 0
-    }
+    # --- PINS (Socket Connectors) ---
+    "BP_RaceTrack_Wb_11": {"type": TYPE_PIN, "tags": ["connector"], "len": 600, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_14": {"type": TYPE_PIN, "tags": ["turn", "t_junction"], "len": 900, "curve": 90, "z": 0},
+
+    # --- CAPS/DEAD ENDS ---
+    "BP_RaceTrack_Wb_01": {"type": TYPE_SOLID, "tags": ["cap", "dead_end"], "len": 300, "curve": 0, "z": 0},
+    "BP_RaceTrack_Wb_24": {"type": TYPE_SOLID, "tags": ["cap", "return"], "len": 900, "curve": 180, "z": 0},
 }
 
-# --- LOGIC SOLVER ---
-
-def get_next_piece(current_type: str, intent: str = "straight") -> dict:
-    """Decides the next piece based on connection type compatibility."""
-    options = []
+def resolve_next_asset(current_type: str, intent: str) -> dict:
+    """
+    Selects the best asset ID based on current connection type and AI intent.
+    intent: 'straight', 'turn', 'ramp', 'bridge'
+    """
+    candidates = []
     
-    # 1. Filter by Type Compatibility (Solid connects to Solid, Pin to Pin)
-    for key, data in ROAD_ASSETS.items():
+    # 1. Filter by Connection Compatibility
+    for aid, data in ROAD_DB.items():
         if data["type"] == current_type:
-            options.append(key)
+            candidates.append(aid)
+            
+    # 2. Filter by Intent
+    best_matches = []
+    for aid in candidates:
+        tags = ROAD_DB[aid]["tags"]
+        if intent == "turn" and "turn" in tags: best_matches.append(aid)
+        elif intent == "ramp" and "ramp" in tags: best_matches.append(aid)
+        elif intent == "bridge" and "bridge" in tags: best_matches.append(aid)
+        elif intent == "straight" and "straight" in tags: best_matches.append(aid)
     
-    # 2. Filter by Intent (Turn, Climb, or Straight)
-    if intent == "turn":
-        # Look for curves
-        valid = [k for k in options if ROAD_ASSETS[k]["curve"] != 0]
-        if valid: return ROAD_ASSETS[random.choice(valid)]
+    # Fallback to any valid connector if specific intent fails
+    if not best_matches: 
+        # Prefer basic straight/connector to avoid getting stuck
+        defaults = [k for k in candidates if "straight" in ROAD_DB[k]["tags"]]
+        return ROAD_DB[defaults[0] if defaults else candidates[0]]
     
-    elif intent == "climb":
-        # Look for positive Z change
-        valid = [k for k in options if ROAD_ASSETS[k]["z_change"] > 0]
-        if valid: return ROAD_ASSETS[random.choice(valid)]
-        
-    # Default: Straight/Forward (Zero curve, Zero Z)
-    valid = [k for k in options if ROAD_ASSETS[k]["curve"] == 0 and ROAD_ASSETS[k]["z_change"] == 0]
-    
-    # Fallback if no specific straight piece matches criteria
-    if not valid: return ROAD_ASSETS["straight"]
-    
-    return ROAD_ASSETS[random.choice(valid)]
-
-def generate_road_sequence(steps: int, loop: bool = False) -> List[Dict]:
-    """Generates a connected list of road assets."""
-    sequence = []
-    
-    # Always start with a solid straight piece
-    current_piece = ROAD_ASSETS["straight"]
-    sequence.append(current_piece)
-    
-    for i in range(steps):
-        next_type = current_piece["type"]
-        
-        # Define intent based on step count
-        intent = "straight"
-        if i % 6 == 0: intent = "turn"   # Turn every 6 segments
-        elif i == 3: intent = "climb"    # Climb early on
-        
-        # Get next compatible piece
-        next_piece = get_next_piece(next_type, intent)
-        sequence.append(next_piece)
-        
-        current_piece = next_piece
-
-    # Cap the end
-    if loop:
-        sequence.append(ROAD_ASSETS["return_loop"])
-    else:
-        sequence.append(ROAD_ASSETS["dead_end"])
-        
-    return sequence
+    selected_id = random.choice(best_matches)
+    return {"id": selected_id, **ROAD_DB[selected_id]}

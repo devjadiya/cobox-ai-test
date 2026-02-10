@@ -3,48 +3,35 @@ import random
 import math
 
 # ==============================================================================
-# 1. ASSET DATABASE (The 25 Pieces with STRICT Connector Rules)
+# 1. ASSET DATABASE (Strict "Pin" vs "Solid" Definitions)
 # ==============================================================================
-# TYPE: 0 = Solid, 1 = Pin (Holes)
-# CURVE: Degrees of rotation
-# Z: Elevation change
+TYPE_SOLID = 0
+TYPE_PIN = 1
+
 ROAD_DB = {
-    # --- SOLID BASICS (Type 0) ---
-    "Straight_Basic":   {"id": "BP_RaceTrack_Wb_02", "type": 0, "len": 900, "curve": 0, "z": 0},
-    "Straight_Bump":    {"id": "BP_RaceTrack_Wb_03", "type": 0, "len": 900, "curve": 0, "z": 0},
-    "Straight_Wide":    {"id": "BP_RaceTrack_Wb_05", "type": 0, "len": 900, "curve": 0, "z": 0},
-    "Straight_Gap":     {"id": "BP_RaceTrack_Wb_06", "type": 0, "len": 900, "curve": 0, "z": 0},
-    "Straight_S_Bend":  {"id": "BP_RaceTrack_Wb_07", "type": 0, "len": 1200, "curve": 0, "z": 0},
-    "Straight_Long":    {"id": "BP_RaceTrack_Wb_17", "type": 0, "len": 1200, "curve": 0, "z": 0},
+    # --- SOLID GROUP (Connects to Solid) ---
+    "straight":         {"id": "BP_RaceTrack_Wb_02", "type": TYPE_SOLID, "len": 900, "curve": 0, "z": 0},
+    "straight_bump":    {"id": "BP_RaceTrack_Wb_03", "type": TYPE_SOLID, "len": 900, "curve": 0, "z": 0},
+    "turn_90":          {"id": "BP_RaceTrack_Wb_04", "type": TYPE_SOLID, "len": 900, "curve": 90, "z": 0},
+    "turn_slight":      {"id": "BP_RaceTrack_Wb_12", "type": TYPE_SOLID, "len": 900, "curve": 15, "z": 0},
+    "ramp_gentle":      {"id": "BP_RaceTrack_Wb_08", "type": TYPE_SOLID, "len": 900, "curve": 0, "z": 200},
+    "ramp_steep":       {"id": "BP_RaceTrack_Wb_09", "type": TYPE_SOLID, "len": 900, "curve": 0, "z": 400},
+    "bridge_start":     {"id": "BP_RaceTrack_Wb_10", "type": TYPE_SOLID, "len": 1200, "curve": 0, "z": 100},
+    "bridge_segment":   {"id": "BP_RaceTrack_Wb_25", "type": TYPE_SOLID, "len": 1200, "curve": 0, "z": 0},
+    "loop_360":         {"id": "BP_RaceTrack_Wb_20", "type": TYPE_SOLID, "len": 2000, "curve": 0, "z": 800},
+    "u_turn":           {"id": "BP_RaceTrack_Wb_18", "type": TYPE_SOLID, "len": 900, "curve": 180, "z": 0},
+    "mercedes":         {"id": "BP_RaceTrack_Wb_23", "type": TYPE_SOLID, "len": 1200, "curve": 0, "z": 0},
+    "splitter":         {"id": "BP_RaceTrack_Wb_22", "type": TYPE_SOLID, "len": 1200, "curve": 0, "z": 0},
+    "return_loop":      {"id": "BP_RaceTrack_Wb_24", "type": TYPE_SOLID, "len": 900, "curve": 180, "z": 0},
     
-    # --- SOLID TURNS (Type 0) ---
-    "Turn_90":          {"id": "BP_RaceTrack_Wb_04", "type": 0, "len": 900, "curve": 90, "z": 0},
-    "Turn_Slight":      {"id": "BP_RaceTrack_Wb_12", "type": 0, "len": 900, "curve": 15, "z": 0},
-    "Turn_Sharp":       {"id": "BP_RaceTrack_Wb_13", "type": 0, "len": 900, "curve": 90, "z": 0},
-    "Turn_U":           {"id": "BP_RaceTrack_Wb_18", "type": 0, "len": 900, "curve": 180, "z": 0},
-
-    # --- SOLID RAMPS (Type 0) ---
-    "Ramp_Gentle":      {"id": "BP_RaceTrack_Wb_08", "type": 0, "len": 900, "curve": 0, "z": 200},
-    "Ramp_Steep":       {"id": "BP_RaceTrack_Wb_09", "type": 0, "len": 900, "curve": 0, "z": 400},
-    "Spiral_Up":        {"id": "BP_RaceTrack_Wb_15", "type": 0, "len": 1200, "curve": 45, "z": 300},
-    "Spiral_Steep":     {"id": "BP_RaceTrack_Wb_16", "type": 0, "len": 1200, "curve": 90, "z": 600},
-    "Spiral_Down":      {"id": "BP_RaceTrack_Wb_19", "type": 0, "len": 1200, "curve": 90, "z": -400},
-    "Loop_360":         {"id": "BP_RaceTrack_Wb_20", "type": 0, "len": 2000, "curve": 0, "z": 800},
-    "Hill_Down":        {"id": "BP_RaceTrack_Wb_21", "type": 0, "len": 1200, "curve": 0, "z": -200},
-
-    # --- SPECIALS (Type 0) ---
-    "Bridge_Start":     {"id": "BP_RaceTrack_Wb_10", "type": 0, "len": 1200, "curve": 0, "z": 100},
-    "Bridge_Segment":   {"id": "BP_RaceTrack_Wb_25", "type": 0, "len": 1200, "curve": 0, "z": 0},
-    "Splitter":         {"id": "BP_RaceTrack_Wb_22", "type": 0, "len": 1200, "curve": 0, "z": 0},
-    "Mercedes":         {"id": "BP_RaceTrack_Wb_23", "type": 0, "len": 1200, "curve": 0, "z": 0},
-    "Return_Loop":      {"id": "BP_RaceTrack_Wb_24", "type": 0, "len": 900, "curve": 180, "z": 0},
-
-    # --- PIN CONNECTORS (Type 1 - THE TROUBLEMAKERS) ---
-    "Pin_Connector":    {"id": "BP_RaceTrack_Wb_11", "type": 1, "len": 600, "curve": 0, "z": 0},
-    "Pin_T_Left":       {"id": "BP_RaceTrack_Wb_14", "type": 1, "len": 900, "curve": 90, "z": 0}, # Force Left Turn
+    # --- PIN GROUP (Connects to Pin) ---
+    "pin_t_junction":   {"id": "BP_RaceTrack_Wb_14", "type": TYPE_PIN, "len": 900, "curve": 90, "z": 0}, 
+    
+    # --- ADAPTER (The Magic Piece) ---
+    # Asset 11 connects Solid to Pin (or Pin to Solid).
+    "adapter_pin":      {"id": "BP_RaceTrack_Wb_11", "type": TYPE_PIN, "len": 600, "curve": 0, "z": 0}, 
 }
 
-# --- BUILDING ASSETS (Your specific preferences) ---
 BUILDING_DB = {
     "floor": [{"class": f"BP_FloorAsset_Wb_{str(i).zfill(2)}_C", "path": f"/WorldBuilder/Core/Actors/Placeable/Library/Floor/BP_FloorAsset_Wb_{str(i).zfill(2)}.BP_FloorAsset_Wb_{str(i).zfill(2)}_C"} for i in range(1, 12)],
     "wall": [{"class": f"BP_WallAsset_Wb_{str(i).zfill(2)}_C", "path": f"/WorldBuilder/Core/Actors/Placeable/Library/Wall/BP_WallAsset_Wb_{str(i).zfill(2)}.BP_WallAsset_Wb_{str(i).zfill(2)}_C"} for i in range(1, 13)],
@@ -53,26 +40,37 @@ BUILDING_DB = {
 }
 
 # ==============================================================================
-# 2. THE COMPILER
+# 2. CORE COMPILER
 # ==============================================================================
 GRID_UNIT = 600.0
 WALL_OFFSET = 300.0
 FLOOR_HEIGHT = 400.0
 
-def _actor(asset, x, y, z, yaw=0.0):
-    if not asset: return None
-    # Handle Road Logic Dicts vs Registry Dicts
-    if "class" in asset:
-        c_name = asset["class"]
-        c_path = asset["path"]
+def _actor(asset_id, x, y, z, yaw=0.0):
+    """Generates valid JSON for an actor."""
+    # Auto-resolve path based on ID logic
+    if "BP_RaceTrack" in asset_id:
+        c_path = f"/WorldBuilder/Core/Actors/Placeable/Library/Tracks/{asset_id}.{asset_id}_C"
     else:
-        # Construct path for road pieces
-        c_name = f"{asset['id']}_C"
-        c_path = f"/WorldBuilder/Core/Actors/Placeable/Library/Tracks/{asset['id']}.{asset['id']}_C"
+        # Fallback for manual building assets passed as dicts
+        return None 
 
     return {
-        "AssetClass": c_name,
+        "AssetClass": f"{asset_id}_C",
         "AssetClassPath": c_path,
+        "Transform": {
+            "Location": {"X": float(x), "Y": float(y), "Z": float(z)},
+            "Rotation": {"Pitch": 0.0, "Yaw": float(yaw), "Roll": 0.0},
+            "Scale": {"X": 1.0, "Y": 1.0, "Z": 1.0}
+        },
+        "OcaData": {"CollisionProfile": "BlockAllDynamic", "Physics": False, "Shadow": True}
+    }
+
+def _building_actor(asset_data, x, y, z, yaw=0.0):
+    """Specific helper for building parts which have complex paths."""
+    return {
+        "AssetClass": asset_data["class"],
+        "AssetClassPath": asset_data["path"],
         "Transform": {
             "Location": {"X": float(x), "Y": float(y), "Z": float(z)},
             "Rotation": {"Pitch": 0.0, "Yaw": float(yaw), "Roll": 0.0},
@@ -83,108 +81,127 @@ def _actor(asset, x, y, z, yaw=0.0):
 
 def compile_scene(blueprint: dict) -> dict:
     placeables = []
+    
+    # 1. EXTRACT AI INTENT
+    layout = blueprint.get("layout", {})
+    building_list = layout.get("buildings", [])
+    road_intents = layout.get("road_sequence", [])
+    
+    # Grid tracker
     occupied_grid = set()
-
     def mark_grid(gx, gy, radius=1):
         for i in range(-radius, radius+1):
             for j in range(-radius, radius+1):
                 occupied_grid.add((int(gx)+i, int(gy)+j))
 
     # ---------------------------------------------------------
-    # PART A: BUILDINGS (The Anchor)
+    # PART A: DYNAMIC BUILDINGS (Only if requested)
     # ---------------------------------------------------------
-    # Hardcode a safe grid layout for 5 buildings so they NEVER overlap
-    # (0,0), (0, 3), (3, 0), (-3, 0), (0, -3)
-    building_coords = [(0,0), (0,4), (4,0), (-4,0), (0,-4)]
+    cursor_x, cursor_y = 0, 0
     
-    for i, (bx_grid, by_grid) in enumerate(building_coords):
-        mark_grid(bx_grid, by_grid, radius=2) # Reserve space
-        
-        world_x = bx_grid * GRID_UNIT
-        world_y = by_grid * GRID_UNIT
-        floors = random.randint(2, 6) # Varied height
-
-        # Recursive Construction
-        for f in range(floors):
-            z = f * FLOOR_HEIGHT
-            # Floor (Asset 05 preferred)
-            placeables.append(_actor(BUILDING_DB["floor"][4], world_x, world_y, z))
+    if building_list:
+        for floors in building_list:
+            # Spiral Search
+            while (cursor_x, cursor_y) in occupied_grid:
+                cursor_x += 2
+                if cursor_x > 10: 
+                    cursor_x = 0
+                    cursor_y += 2
             
-            # Walls
-            wall_asset = BUILDING_DB["wall"][1] # Asset 02 preferred
-            placeables.append(_actor(wall_asset, world_x + WALL_OFFSET, world_y, z, 90))
-            placeables.append(_actor(wall_asset, world_x - WALL_OFFSET, world_y, z, 270))
-            placeables.append(_actor(wall_asset, world_x, world_y + WALL_OFFSET, z, 0))
-            placeables.append(_actor(wall_asset, world_x, world_y - WALL_OFFSET, z, 180))
-
-        # Roof
-        placeables.append(_actor(BUILDING_DB["ceiling"][0], world_x, world_y, floors * FLOOR_HEIGHT))
+            mark_grid(cursor_x, cursor_y, radius=2)
+            
+            # Draw Building
+            bx, by = cursor_x * GRID_UNIT, cursor_y * GRID_UNIT
+            for f in range(floors):
+                z = f * FLOOR_HEIGHT
+                placeables.append(_building_actor(BUILDING_DB["floor"][4], bx, by, z))
+                placeables.append(_building_actor(BUILDING_DB["wall"][1], bx+300, by, z, 90))
+                placeables.append(_building_actor(BUILDING_DB["wall"][1], bx-300, by, z, 270))
+                placeables.append(_building_actor(BUILDING_DB["wall"][1], bx, by+300, z, 0))
+                placeables.append(_building_actor(BUILDING_DB["wall"][1], bx, by-300, z, 180))
+            
+            placeables.append(_building_actor(BUILDING_DB["ceiling"][0], bx, by, floors * FLOOR_HEIGHT))
 
     # ---------------------------------------------------------
-    # PART B: THE ROAD (The Graph Solver)
+    # PART B: DYNAMIC ROAD (The Socket Solver)
     # ---------------------------------------------------------
-    # Start the road far out so it doesn't clip buildings
-    rx, ry, rz = 6000.0, 0.0, 0.0
+    rx, ry, rz = (cursor_x + 6) * GRID_UNIT, 0, 0
     r_yaw = 0.0
     
-    # We define a "Safe Sequence" that mixes Solids and Pins correctly
-    # Pattern: Solid -> Solid -> Solid -> Pin_Adapter -> Pin_Turn -> Pin_Adapter -> Solid
+    # Start with a safe solid piece if list is empty
+    if not road_intents: road_intents = ["straight", "straight", "turn_90"]
     
-    road_plan = [
-        "Straight_Basic", "Straight_Basic", "Straight_Basic", # Speed up
-        "Bridge_Start", "Bridge_Segment", "Bridge_Segment", # Go up
-        "Ramp_Gentle", # Go higher
-        "Turn_90", "Straight_Basic", "Turn_90", # Turn around
-        "Hill_Down", "Straight_Basic", # Go down
-        "Pin_Connector", "Pin_T_Left", "Pin_Connector", # THE PIN SECTION (11 -> 14 -> 11)
-        "Straight_Basic", "Return_Loop" # End
-    ]
+    # State Tracking
+    current_connector_type = TYPE_SOLID # We assume we start on solid ground
+    
+    for intent in road_intents:
+        # 1. Lookup Asset Logic
+        # Does the requested intent exist in our DB?
+        target_key = intent if intent in ROAD_DB else "straight"
+        target_data = ROAD_DB[target_key]
+        
+        # 2. SOCKET CHECK (The Fix)
+        # If types mismatch (e.g. Current is Solid, Target is Pin), we MUST inject an adapter.
+        if current_connector_type != target_data["type"]:
+            # Inject Adapter (Asset 11)
+            adapter = ROAD_DB["adapter_pin"]
+            placeables.append(_actor(adapter["id"], rx, ry, rz, r_yaw))
+            
+            # Move cursor past adapter
+            rad = math.radians(r_yaw)
+            rx += math.cos(rad) * adapter["len"]
+            ry += math.sin(rad) * adapter["len"]
+            
+            # Update state (Adapter switches the type)
+            current_connector_type = target_data["type"] 
 
-    for move_name in road_plan:
-        piece = ROAD_DB[move_name]
+        # 3. Place The Actual Requested Piece
+        placeables.append(_actor(target_data["id"], rx, ry, rz, r_yaw))
         
-        # 1. Place Piece
-        placeables.append(_actor(piece, rx, ry, rz, r_yaw))
-        
-        # 2. Reserve Grid (So trees don't spawn on road)
+        # Mark grid
         gx, gy = int(rx/GRID_UNIT), int(ry/GRID_UNIT)
         mark_grid(gx, gy, radius=2)
-
-        # 3. Calculate Exit Point
+        
+        # 4. Move Cursor
         rad = math.radians(r_yaw)
-        length = piece["len"]
+        length = target_data["len"]
         
         rx += math.cos(rad) * length
         ry += math.sin(rad) * length
-        rz += piece["z"]
-        r_yaw += piece["curve"]
+        rz += target_data["z"]
+        r_yaw += target_data["curve"]
+        
+        # Update type for next loop
+        current_connector_type = target_data["type"]
 
     # ---------------------------------------------------------
-    # PART C: DENSE FOREST (The Filler)
+    # PART C: DYNAMIC FOREST
     # ---------------------------------------------------------
-    # We fill a massive area (100x100 grid)
-    for fx in range(-50, 50):
-        for fy in range(-50, 50):
-            # Optimization: Only check if it's NOT in the center building/road zone
-            if (fx, fy) not in occupied_grid:
-                # 60% Density
-                if random.random() > 0.4:
-                    tx = (fx * GRID_UNIT) + random.uniform(-200, 200)
-                    ty = (fy * GRID_UNIT) + random.uniform(-200, 200)
-                    
-                    # Random tree
-                    tree = random.choice(BUILDING_DB["decor"])
-                    placeables.append(_actor(tree, tx, ty, 0, random.uniform(0, 360)))
+    density = layout.get("forest_density", 0.1)
+    
+    if density > 0.0:
+        for fx in range(-40, 40):
+            for fy in range(-40, 40):
+                if (fx, fy) not in occupied_grid:
+                    if random.random() < density:
+                        tx = (fx * GRID_UNIT) + random.uniform(-200, 200)
+                        ty = (fy * GRID_UNIT) + random.uniform(-200, 200)
+                        tree = random.choice(BUILDING_DB["decor"])
+                        placeables.append(_building_actor(tree, tx, ty, 0, random.uniform(0, 360)))
 
+    # ---------------------------------------------------------
+    # PART D: ENVIRONMENT
+    # ---------------------------------------------------------
+    env = blueprint.get("environment", {})
     return {
         "PlaceableAssets": [p for p in placeables if p is not None],
         "GeometryAssets": [],
         "Text3DActors": [],
         "Foliage": [],
         "DefaultProperties": {
-            "Brightness": 10.0,
+            "Brightness": env.get("brightness", 10.0),
             "Temperature": 46.6,
-            "TimeOfDay": 6.82,
+            "TimeOfDay": env.get("time", 14.0),
             "SunAngle": 0,
             "Density": 0.04,
             "Height": 0.2
